@@ -1,6 +1,7 @@
 package com.xiaoli.security.service.impl;
 
-import com.xiaoli.security.security.SaltUser;
+import com.xiaoli.security.model.CustomGrantedAuthority;
+import com.xiaoli.security.model.SaltUser;
 import com.xiaoli.security.service.IChangePassword;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.RowMapper;
@@ -8,6 +9,8 @@ import org.springframework.security.authentication.dao.SaltSource;
 import org.springframework.security.authentication.encoding.Md5PasswordEncoder;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.core.userdetails.jdbc.JdbcDaoImpl;
@@ -32,6 +35,8 @@ public class CustomJdbcDaoImpl extends JdbcDaoImpl implements IChangePassword {
     Md5PasswordEncoder passwordEncoder;
     @Autowired
     private SaltSource saltSource;
+
+    private String groupAuthoritiesByUsernameQuery;
 
     public void changePassword(String username, String oldPassword, String newPassword) {
         try {
@@ -71,14 +76,23 @@ public class CustomJdbcDaoImpl extends JdbcDaoImpl implements IChangePassword {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+
         return super.loadUserByUsername(username);
     }
 
     @Override
-    protected List<GrantedAuthority> loadUserAuthorities(String username) {
-        return super.loadUserAuthorities(username);
-    }
+    protected List<GrantedAuthority> loadGroupAuthorities(String username) {
+        return getJdbcTemplate().query(getGroupAuthoritiesByUsernameQuery(),
+                new String[] { username }, new RowMapper<GrantedAuthority>() {
+                    public GrantedAuthority mapRow(ResultSet rs, int rowNum)
+                            throws SQLException {
+                        String role = getRolePrefix() + rs.getString(3);
+                        String roleDesc = rs.getString(2);
 
+                        return new CustomGrantedAuthority(role,roleDesc);
+                    }
+                });
+    }
 
     @Override
     protected UserDetails createUserDetails(String username, UserDetails userFromUserQuery, List<GrantedAuthority> combinedAuthorities) {
@@ -101,4 +115,12 @@ public class CustomJdbcDaoImpl extends JdbcDaoImpl implements IChangePassword {
         }
     }
 
+    public String getGroupAuthoritiesByUsernameQuery() {
+        return groupAuthoritiesByUsernameQuery;
+    }
+
+    @Override
+    public void setGroupAuthoritiesByUsernameQuery(String groupAuthoritiesByUsernameQuery) {
+        this.groupAuthoritiesByUsernameQuery = groupAuthoritiesByUsernameQuery;
+    }
 }

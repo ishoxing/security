@@ -9,21 +9,29 @@
 		http://www.springframework.org/schema/security/spring-security.xsd">
 
 
-    <global-method-security pre-post-annotations="enabled" />
 
-    <http auto-config="true" use-expressions="true">
-        <custom-filter ref="requestHeaderFilter" before="FORM_LOGIN_FILTER" />
-        <!--拥有两种角色中的任意一种就可以，不配置user登陆后访问登陆页面报错！！！-->
-        <intercept-url pattern="/login" access="hasAnyRole('ANONYMOUS')"  />
-        <intercept-url pattern="/" access="hasAnyRole('ANONYMOUS,ADMIN')"   />
-        <intercept-url pattern="/account" access="hasRole('ADMIN') and fullyAuthenticated"  />
-        <intercept-url pattern="/toChangePassword" access="hasRole('ADMIN') and fullyAuthenticated"  />
+
+    <http security="none" pattern="/static/**" />
+    <http security="none" pattern="/lib/**" />
+
+    <http auto-config="true">
+
+        <!--不进行下面的设置，iframe会报Refused to display 'http://localhost:8081/welcome' in a frame because it set 'X-Frame-Options' to 'DENY'.-->
+        <headers>
+            <frame-options disabled="true"></frame-options>
+        </headers>
+        <!--指定最大的活动session数量为1-->
+        <session-management>
+            <concurrency-control max-sessions="1" expired-url="/expired"/>
+        </session-management>
         <form-login login-page="/login" default-target-url="/" authentication-failure-url="/login" username-parameter="username" password-parameter="password"/>
 
         <!--关闭csrf否则logout为get方式不能生效，必须为post方式-->
         <csrf disabled="true"/>
         <!--key相当于token的md5的盐值,data-source-ref：remember-me持久化到数据库-->
         <remember-me key="123456"  token-validity-seconds="3600" remember-me-parameter="remember"  data-source-ref="dataSource" />
+
+        <custom-filter ref="metadataSourceFilterSecurityInterceptor" before="FILTER_SECURITY_INTERCEPTOR" />
     </http>
 
 

@@ -1,0 +1,93 @@
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns="http://www.springframework.org/schema/beans" xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd http://www.springframework.org/schema/beans
+ http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+    <mvc:annotation-driven/>
+    <!-- 静态资源文件，不会被Spring MVC拦截 -->
+    <mvc:resources location="/static/" mapping="/static/**"	cache-period="864000" /><!-- 24 * 3600 * 10 -->
+    <mvc:resources location="/lib/" mapping="/lib/**"	cache-period="864000" />
+
+    <context:component-scan base-package="com.xiaoli.security"/>
+
+    <!--用于解析jsp-->
+    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <property name="prefix">
+            <value>/WEB-INF/views/</value>
+        </property>
+        <property name="suffix">
+            <value>.jsp</value>
+        </property>
+    </bean>
+
+    <!--自定义remember-me的service-->
+    <bean class="com.xiaoli.security.service.IPTokenBasedRememberMeServices" id="ipTokenBasedRememberMeServicesBean">
+        <constructor-arg index="0" value="jbcpPetStore"/>
+        <constructor-arg index="1" ref="jdbcUserService"/>
+        <!--remember-me的表单参数名-->
+        <property name="parameter" value="remember" />
+    </bean>
+
+    <bean id="jdbcUserService" class="com.xiaoli.security.service.impl.CustomJdbcDaoImpl">
+            <property name="dataSource" ref="dataSource"></property>
+        <property name="enableGroups" value="true" />
+        <property name="enableAuthorities" value="false" />
+        <property name="usersByUsernameQuery" value="SELECT NAME username ,PASSWORD ,STATUS enabled,salt FROM USER WHERE NAME = ?" />
+        <property name="groupAuthoritiesByUsernameQuery" value="SELECT
+                                                                  role.`id`,
+                                                                  role.`descr` AS group_name,
+                                                                  role.`name` AS authority
+                                                                FROM
+                                                                  USER,
+                                                                  user_role,
+                                                                  role
+                                                                WHERE user.`id` = user_role.`user_id`
+                                                                  AND role.`id` = user_role.`role_id`
+                                                                  AND user.`name` = ?" />
+                                                                    </bean>
+
+    <bean id="passwordEncoder" class="org.springframework.security.authentication.encoding.Md5PasswordEncoder" />
+
+    <bean id="saltSource" class="org.springframework.security.authentication.dao.ReflectionSaltSource" >
+        <property name="userPropertyToUse" value="salt" />
+    </bean>
+
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+    <bean id="metadataSourceFilterSecurityInterceptor" class="org.springframework.security.web.access.intercept.FilterSecurityInterceptor">
+        <property name="authenticationManager" ref="authenticationManager"/>
+        <property name="accessDecisionManager" ref="accessDecisionManager"/>
+        <property name="securityMetadataSource" ref="mySecureResourceFilter" />
+        <!--不配置的链接是否默认要求权限-->
+        <!--<property name="rejectPublicInvocations" value="true" />-->
+    </bean>
+
+    <bean id="authenticationManager" class="org.springframework.security.authentication.ProviderManager">
+        <constructor-arg>
+            <list>
+                <ref bean="authenticationProvider"/>
+            </list>
+        </constructor-arg>
+    </bean>
+
+    <bean id="accessDecisionManager" class="org.springframework.security.access.vote.AffirmativeBased">
+        <constructor-arg>
+            <list>
+                <bean class="org.springframework.security.access.vote.RoleVoter" />
+                <bean class="org.springframework.security.access.vote.AuthenticatedVoter"/>
+            </list>
+        </constructor-arg>
+    </bean>
+
+    <bean id="mySecureResourceFilter" class="com.xiaoli.security.security.MySecureResourceFilter" >
+        <constructor-arg ref="jdbcTemplate"/>
+    </bean>
+
+    <bean id="authenticationProvider" class="org.springframework.security.authentication.dao.DaoAuthenticationProvider">
+        <property name="userDetailsService" ref="jdbcUserService"/>
+    </bean>
+
+
+
+</beans>
